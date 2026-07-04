@@ -1,5 +1,19 @@
-# Table-of-contents
-Automatically detects headings, figures, diagrams, tables, and charts, then assigns appropriate Outline Levels while preserving the original formatting.
+# Table of Contents for Microsoft Word
+
+Automatically detect headings and captions in Microsoft Word and assign the correct Outline Levels using VBA.
+
+Features:
+
+- Automatically detect Chapter, Section and numbered headings
+- Detect Figure captions
+- Detect Table captions
+- Detect Diagram captions
+- Detect Chart captions
+- Preserve original formatting
+- Generate Table of Contents instantly
+
+Keywords:
+Microsoft Word, Word VBA, Table of Contents, Outline Level, Heading, Caption, Figure, Table, Diagram, Chart.
 # Usage
 **English:*
 1. Open **Microsoft Word**.
