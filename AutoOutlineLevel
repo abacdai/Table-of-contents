@@ -1,0 +1,231 @@
+Private Function IsCaption(txt As String, kw As String) As Boolean
+    Dim kLen As Long, rest As String
+    kLen = Len(kw)
+    If Len(txt) <= kLen Then Exit Function
+    If Left(txt, kLen) <> kw Then Exit Function
+    rest = LTrim(Mid(txt, kLen + 1))
+    If Left(rest, 1) = ":" Then rest = LTrim(Mid(rest, 2))
+    IsCaption = (Left(rest, 1) >= "0" And Left(rest, 1) <= "9")
+End Function
+
+Private Function IsDigit(c As String) As Boolean
+    IsDigit = (c >= "0" And c <= "9")
+End Function
+
+Private Function CountNumericParts(txt As String) As Long
+    Dim parts() As String, i As Long, n As Long, pt As String
+    parts = Split(txt, ".")
+    For i = 0 To UBound(parts)
+        If i > 3 Then Exit For
+        pt = Trim(parts(i))
+        If Len(pt) > 0 And IsDigit(Left(pt, 1)) Then
+            n = n + 1
+        Else
+            Exit For
+        End If
+    Next i
+    CountNumericParts = n
+End Function
+
+Private Sub UnhookHeading(p As Paragraph)
+    Dim sName As String
+    sName = p.Style.NameLocal
+    If Left(sName, 7) <> "Heading" And sName <> "Title" Then Exit Sub
+
+    Dim fBold As Variant, fItalic As Variant, fSize As Variant
+    Dim fName As Variant, fColor As Variant, fUnder As Variant
+    Dim fStrike As Variant, fSuper As Variant, fSub As Variant
+    Dim fAllCaps As Variant, fSmallCaps As Variant, fHidden As Variant
+    Dim fHighlight As Variant
+
+    With p.Range.Font
+        fBold = .Bold:       fItalic = .Italic
+        fSize = .Size:       fName = .Name
+        fColor = .Color:     fUnder = .Underline
+        fStrike = .StrikeThrough
+        fSuper = .Superscript:  fSub = .Subscript
+        fAllCaps = .AllCaps: fSmallCaps = .SmallCaps
+        fHidden = .Hidden
+    End With
+    On Error Resume Next
+    fHighlight = p.Range.HighlightColorIndex
+    On Error GoTo 0
+
+    Dim fAlign As WdParagraphAlignment
+    Dim fIndentLeft As Single, fIndentRight As Single, fIndentFirst As Single
+    Dim fSpaceBefore As Single, fSpaceAfter As Single
+    Dim fLineSpacing As Single, fLineSpacingRule As WdLineSpacing
+    Dim fKeepTogether As Boolean, fKeepWithNext As Boolean
+    Dim fPageBreakBefore As Boolean
+
+    With p.Format
+        fAlign = .Alignment
+        fIndentLeft = .LeftIndent:   fIndentRight = .RightIndent
+        fIndentFirst = .FirstLineIndent
+        fSpaceBefore = .SpaceBefore: fSpaceAfter = .SpaceAfter
+        fLineSpacing = .LineSpacing: fLineSpacingRule = .LineSpacingRule
+        fKeepTogether = .KeepTogether
+        fKeepWithNext = .KeepWithNext
+        fPageBreakBefore = .PageBreakBefore
+    End With
+
+    Dim bHasList As Boolean
+    Dim oListTemplate As ListTemplate
+    Dim nListLevel As Long
+
+    bHasList = (p.Range.ListFormat.ListType <> wdListNoNumbering)
+    If bHasList Then
+        nListLevel = p.Range.ListFormat.ListLevelNumber
+        On Error Resume Next
+        Set oListTemplate = p.Range.ListFormat.ListTemplate
+        On Error GoTo 0
+    End If
+
+    p.Style = ActiveDocument.Styles(wdStyleNormal)
+
+    With p.Range.Font
+        .Bold = fBold:       .Italic = fItalic
+        .Size = fSize:       .Name = fName
+        .Color = fColor:     .Underline = fUnder
+        .StrikeThrough = fStrike
+        .Superscript = fSuper:  .Subscript = fSub
+        .AllCaps = fAllCaps: .SmallCaps = fSmallCaps
+        .Hidden = fHidden
+    End With
+    On Error Resume Next
+    p.Range.HighlightColorIndex = fHighlight
+    On Error GoTo 0
+
+    With p.Format
+        .Alignment = fAlign
+        .LeftIndent = fIndentLeft:   .RightIndent = fIndentRight
+        .FirstLineIndent = fIndentFirst
+        .SpaceBefore = fSpaceBefore: .SpaceAfter = fSpaceAfter
+        .LineSpacingRule = fLineSpacingRule
+        .LineSpacing = fLineSpacing
+        .KeepTogether = fKeepTogether
+        .KeepWithNext = fKeepWithNext
+        .PageBreakBefore = fPageBreakBefore
+    End With
+
+    If bHasList And Not oListTemplate Is Nothing Then
+        On Error Resume Next
+        p.Range.ListFormat.ApplyListTemplate _
+            ListTemplate:=oListTemplate, _
+            ContinuePreviousList:=True, _
+            ApplyTo:=wdListApplyToWholeList, _
+            DefaultListBehavior:=wdWord10ListBehavior
+        p.Range.ListFormat.ListLevelNumber = nListLevel
+        On Error GoTo 0
+    End If
+End Sub
+
+' FIX: Set OutlineLevel và restore alignment ngay sau
+' vì Word reset alignment khi set OutlineLevel
+Private Sub SetLevelKeepAlign(p As Paragraph, lvl As Long)
+    Dim savedAlign As WdParagraphAlignment
+    savedAlign = p.Alignment
+    Select Case lvl
+        Case 1: p.OutlineLevel = wdOutlineLevel1
+        Case 2: p.OutlineLevel = wdOutlineLevel2
+        Case 3: p.OutlineLevel = wdOutlineLevel3
+        Case 4: p.OutlineLevel = wdOutlineLevel4
+        Case 5: p.OutlineLevel = wdOutlineLevel5
+        Case 6: p.OutlineLevel = wdOutlineLevel6
+        Case 7: p.OutlineLevel = wdOutlineLevel7
+        Case 8: p.OutlineLevel = wdOutlineLevel8
+    End Select
+    If p.Alignment <> savedAlign Then p.Alignment = savedAlign
+End Sub
+
+Sub AutoOutlineLevel()
+
+    Dim p As Paragraph
+    Dim txt As String, raw As String
+    Dim lvl As Long, lln As Long, numParts As Long
+    Dim bInIntro As Boolean
+    bInIntro = True
+
+    Dim KW_HINH As String, KW_SO_DO As String
+    Dim KW_BANG As String, KW_BIEU_DO As String
+    Dim KW_PHAN_UC As String, KW_MOI As String
+    Dim KW_CHUONG As String
+
+    KW_HINH    = Chr(104) & ChrW(236) & Chr(110) & Chr(104)
+    KW_SO_DO   = Chr(115) & ChrW(417) & Chr(32) & ChrW(273) & ChrW(7891)
+    KW_BANG    = Chr(98) & ChrW(7843) & Chr(110) & Chr(103)
+    KW_BIEU_DO = Chr(98) & Chr(105) & ChrW(7875) & Chr(117) & Chr(32) & ChrW(273) & ChrW(7891)
+    KW_PHAN_UC = Chr(80) & Chr(72) & ChrW(7846) & Chr(78)
+    KW_MOI     = Chr(109) & ChrW(7903) & Chr(32) & ChrW(273) & ChrW(7847) & Chr(117)
+    KW_CHUONG  = Chr(67) & Chr(72) & ChrW(431) & ChrW(416) & Chr(78) & Chr(71)
+
+    For Each p In ActiveDocument.Paragraphs
+
+        raw = Trim(p.Range.Text)
+        raw = Replace(raw, Chr(160), " ")
+        raw = Replace(raw, Chr(13), "")
+        If Len(raw) = 0 Then GoTo NextPara
+
+        txt = LCase(raw)
+
+        ' === 1. CAPTIONS ===
+        If IsCaption(txt, KW_HINH) Then
+            UnhookHeading p
+            SetLevelKeepAlign p, 5
+        ElseIf IsCaption(txt, KW_SO_DO) Then
+            UnhookHeading p
+            SetLevelKeepAlign p, 6
+        ElseIf IsCaption(txt, KW_BANG) Then
+            UnhookHeading p
+            SetLevelKeepAlign p, 7
+        ElseIf IsCaption(txt, KW_BIEU_DO) Then
+            UnhookHeading p
+            SetLevelKeepAlign p, 8
+
+        ' === 2. PHẦN / CHƯƠNG / LỜI MỞ ĐẦU ===
+        ElseIf Left(raw, 4) = KW_PHAN_UC And p.Range.ListFormat.ListType = wdListNoNumbering Then
+            UnhookHeading p
+            SetLevelKeepAlign p, 1
+            bInIntro = True
+
+        ElseIf UCase(Left(Trim(raw), 6)) = KW_CHUONG And p.Range.ListFormat.ListType = wdListNoNumbering Then
+            UnhookHeading p
+            SetLevelKeepAlign p, 1
+            bInIntro = False
+
+        ElseIf InStr(1, Left(txt, 15), KW_MOI) > 0 And p.Range.ListFormat.ListType = wdListNoNumbering Then
+            UnhookHeading p
+            SetLevelKeepAlign p, 1
+            bInIntro = True
+
+        ' === 3. NUMBERED LIST ===
+        ElseIf p.Range.ListFormat.ListType <> wdListNoNumbering Then
+            lln = p.Range.ListFormat.ListLevelNumber
+            numParts = lln
+            GoTo ApplyLevel
+
+        ' === 4. PLAIN DIGIT ===
+        ElseIf IsDigit(Left(txt, 1)) Then
+            numParts = CountNumericParts(txt)
+            GoTo ApplyLevel
+
+        End If
+
+        GoTo NextPara
+
+ApplyLevel:
+        If bInIntro Then
+            lvl = numParts + 1
+        Else
+            lvl = numParts
+        End If
+        If lvl >= 1 And lvl <= 4 Then
+            UnhookHeading p
+            SetLevelKeepAlign p, lvl
+        End If
+
+NextPara:
+    Next p
+
+    MsgBox "Hoan tat!"
+End Sub
