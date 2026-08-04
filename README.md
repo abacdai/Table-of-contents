@@ -31,4 +31,3 @@ Microsoft Word, Word VBA, Table of Contents, Outline Level, Heading, Caption, Fi
 4. Mở file **AutoOutlineLevel**, sao chép toàn bộ mã và dán vào Module vừa tạo.
 5. Nhấn **Ctrl + S**, đóng VBA Editor, sau đó mở lại tài liệu nếu cần.
 6. Nhấn **Alt + F8**, chọn **Module1.AutoOutlineLevel**, rồi nhấn **Run** để chạy macro.
-Bạn có thể ghi phần **Usage** ngắn gọn như sau
